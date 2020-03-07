@@ -99,7 +99,6 @@ local function QueryCreatureHealth(creaturekey)--	Sends health query to peers
 --	Filter disabled, blacklist, and throttle
 
 	LastHealthQuery[creaturekey]=GetTime();-- Log timestamp
-        return UnitHealthMax(creaturekey);
 end
 
 --------------------------
@@ -351,36 +350,11 @@ end
 local function GetUnitHealth(unit)
 	local guid=UnitGUID(unit);
 	if guid then--	Need a unit to continue
-		local naturalcurrent,naturalmax=UnitHealth(unit),UnitHealthMax(unit);--	Save these as default values if we fail to return anything
-		if AddOn_IsBlacklistedGUID(guid) then return naturalcurrent,naturalmax,nil,nil; end--	Check blacklist
+                local max = UnitHealthMax(unit);
 
-		local creaturekey=AddOn_GetUnitCreatureKey(unit);
-		if not creaturekey then return naturalcurrent,naturalmax,nil,nil; end-- Need a CreatureKey
-
-		local data=UnitCache[guid];
-		local isdead=UnitIsDead(unit);
-		local percent=naturalmax>0 and naturalcurrent/naturalmax or 0;--	Right now, health scales 1-100, automaticly adjusts for different scale if this changes
-		local damage=data and data.Damage or 0;--	Default to zero damage
-		local max=AddOn_HealthOverrides[creaturekey] or HealthCache[creaturekey] or (EnablePeerCache and PeerCache[creaturekey] or nil);--	Sources in order
-
-		if not max then max = QueryCreatureHealth(creaturekey); end--	Query peers for health if no data found
-
-		if max then--	Data found, no need to speculate that
-			if isdead or percent>=1 then return isdead and 0 or max,max,false,false; end--	Unit dead or full health
-
-			local guess=math_ceil(max*percent);--	Calculate from percentage (Less precise)
-			if damage<=0 then return guess,max,true,false; end--	No damage recorded
-
-			local current=max-damage;--	Calculate from damage taken
-			if math_abs(current-guess)<max*DamageSyncThreshold then return current,max,false,false;--	Damage is within an acceptible range
-			else return guess,max,true,false; end--	Damage is out of sync
-		elseif damage>0 and percent<1 then--	Requires damage taken
-			max=math_ceil(damage/(1-percent));--	Reverse calculation based on percent health and damage taken
-			if isdead then return 0,max,false,true;--	Current health can't be more precise than dead
-			else return max-damage,max,true,true; end--	Complete speculation here, precision should improve the more damage a unit takes
-		end
-
-		return naturalcurrent,naturalmax,nil,nil;--	Fallback to natural values
+                local current=UnitHealth(unit);--	Calculate from damage taken
+                -- if math_abs(current-guess)<max*DamageSyncThreshold then return current,max,false,false;--	Damage is within an acceptible range
+                return current,max,false,false;--	Damage is out of sync
 	end
 end
 
